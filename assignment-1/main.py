@@ -50,6 +50,8 @@ parser.add_argument('--nhead', type=int, default=2,
                     help='the number of heads in the encoder/decoder of the transformer model')
 parser.add_argument('--dry-run', action='store_true',
                     help='verify the code and the model')
+parser.add_argument('--skip-train', action='store_true',
+                    help='skip training')
 
 args = parser.parse_args()
 
@@ -210,28 +212,29 @@ def export_onnx(path, batch_size, seq_len):
 lr = args.lr
 best_val_loss = None
 
-# At any point you can hit Ctrl + C to break out of training early.
-try:
-    for epoch in range(1, args.epochs+1):
-        epoch_start_time = time.time()
-        train()
-        val_loss = evaluate(val_data)
-        print('-' * 89)
-        print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
-                'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                           val_loss, math.exp(val_loss)))
-        print('-' * 89)
-        # Save the model if the validation loss is the best we've seen so far.
-        if not best_val_loss or val_loss < best_val_loss:
-            with open(args.save, 'wb') as f:
-                torch.save(model, f)
-            best_val_loss = val_loss
-        else:
-            # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            lr /= 4.0
-except KeyboardInterrupt:
-    print('-' * 89)
-    print('Exiting from training early')
+if not args.skip_train:
+  # At any point you can hit Ctrl + C to break out of training early.
+  try:
+      for epoch in range(1, args.epochs+1):
+          epoch_start_time = time.time()
+          train()
+          val_loss = evaluate(val_data)
+          print('-' * 89)
+          print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
+                  'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
+                                            val_loss, math.exp(val_loss)))
+          print('-' * 89)
+          # Save the model if the validation loss is the best we've seen so far.
+          if not best_val_loss or val_loss < best_val_loss:
+              with open(args.save, 'wb') as f:
+                  torch.save(model, f)
+              best_val_loss = val_loss
+          else:
+              # Anneal the learning rate if no improvement has been seen in the validation dataset.
+              lr /= 4.0
+  except KeyboardInterrupt:
+      print('-' * 89)
+      print('Exiting from training early')
 
 # Load the best saved model.
 with open(args.save, 'rb') as f:
