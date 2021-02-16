@@ -61,6 +61,49 @@ class RNNModel(nn.Module):
         else:
             return weight.new_zeros(self.nlayers, bsz, self.nhid)
 
+class FNNModel(nn.Module):
+    """Container module with an encoder, a linear layer, tanh, softmax, and a decoder."""
+
+    def __init__(self, seq_size, ntoken, emsize, nhid, tie_weights=False):
+        super(FNNModel, self).__init__()
+        self.ntoken = ntoken
+        self.encoder = nn.Embedding(ntoken, emsize)
+        self.hidden = nn.Linear(seq_size*emsize, nhid)
+        self.tanh = nn.Tanh()
+        self.decoder = nn.Linear(nhid, ntoken)
+        self.log_softmax = nn.LogSoftmax(dim=1)
+
+        # Optionally tie weights as in:
+        # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
+        # https://arxiv.org/abs/1608.05859
+        # and
+        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
+        # https://arxiv.org/abs/1611.01462
+        if tie_weights:
+            if nhid != emsize:
+                raise ValueError('When using the tied flag, nhid must be equal to emsize')
+            self.decoder.weight = self.encoder.weight
+
+        self.init_weights()
+
+        self.seq_size = seq_size
+        self.emsize = emsize
+
+    def init_weights(self):
+        initrange = 0.1
+        nn.init.uniform_(self.encoder.weight, -initrange, initrange)
+        nn.init.uniform_(self.hidden.weight, -initrange, initrange)
+        nn.init.uniform_(self.decoder.weight, -initrange, initrange)
+
+    def forward(self, input):
+        emb = self.encoder(input)
+        reshaped_emb = emb.view(-1, self.seq_size*self.emsize)
+        hidden = self.hidden(reshaped_emb)
+        tanh_output = self.tanh(hidden)
+        decoded = self.decoder(tanh_output)
+        decoded = decoded.view(-1, self.ntoken)
+        return self.log_softmax(decoded)
+
 # Temporarily leave PositionalEncoding module here. Will be moved somewhere else.
 class PositionalEncoding(nn.Module):
     r"""Inject some information about the relative or absolute position of the tokens
