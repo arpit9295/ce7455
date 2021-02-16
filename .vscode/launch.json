@@ -1,0 +1,29 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Train Model",
+      "type": "python",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/assignment-1",
+      "program": "./main.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--lr=0.01",
+        "--batch_size=200"
+      ],
+      "python": "python3",
+    }
+  ],
+  "inputs": [
+    {
+      "id": "argPrompt",
+      "description": "CLI arguments",
+      "default": "",
+      "type": "promptString"
+    }
+  ]
+}
