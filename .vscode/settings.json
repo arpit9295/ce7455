@@ -1,0 +1,4 @@
+{
+  "jupyter.jupyterServerType": "local",
+  "python.pythonPath": "/opt/conda/bin/python"
+}

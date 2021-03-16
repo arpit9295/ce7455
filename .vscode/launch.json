@@ -5,16 +5,21 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "python": "/opt/conda/bin/python3.7",
+      "cwd": "${fileDirname}"
+    },
+    {
       "name": "Python: Train Model",
       "type": "python",
       "request": "launch",
       "cwd": "${workspaceFolder}/assignment-1",
       "program": "./main.py",
       "console": "integratedTerminal",
-      "args": [
-        "--lr=0.01",
-        "--batch_size=200"
-      ],
       "python": "python3",
     }
   ],
