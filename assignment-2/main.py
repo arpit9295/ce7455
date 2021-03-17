@@ -456,79 +456,71 @@ def init_model_and_train(label='',
 
 # 1-layer CNN word + CNN char
 print('\n1-layer CNN word + CNN char')
-parameters['char_mode'] = "CNN"
-parameters['encoder_mode'] = "CNN"
-parameters['crf'] = 1
-all_F_1_CNN = init_model_and_train('1_CNN')
+all_F_1_CNN = init_model_and_train(label='1_CNN',
+                                   char_mode = "CNN",
+                                   encoder_mode = "CNN",
+                                   crf = 1)
 print('All F1 =', all_F_1_CNN)
 
 
 # 1-layer CNN word + LSTM char
 print('\n1-layer CNN word + LSTM char')
-parameters['char_mode'] = "LSTM"
-parameters['encoder_mode'] = "CNN"
-parameters['crf'] = 1
-all_F_1_LSTM = init_model_and_train('1_LSTM')
+all_F_1_LSTM = init_model_and_train(label='1_LSTM',
+                                    char_mode = "LSTM",
+                                    encoder_mode = "CNN",
+                                    crf = 1)
 print('All F1 =', all_F_1_LSTM)
 
 
 # 2-layer CNN word + CNN char
 print('\n2-layer CNN word + CNN char')
-parameters['char_mode'] = "CNN"
-parameters['encoder_mode'] = "CNN2"
-parameters['crf'] = 1
-all_F_2_CNN = init_model_and_train('2_CNN')
+all_F_2_CNN = init_model_and_train(label='2_CNN',
+                                   char_mode = "CNN",
+                                   encoder_mode = "CNN2",
+                                   crf = 1)
 print('All F1 =', all_F_2_CNN)
 
 
 # 3-layer CNN word + CNN char
 print('\n3-layer CNN word + CNN char')
-parameters['char_mode'] = "CNN"
-parameters['encoder_mode'] = "CNN3"
-parameters['crf'] = 1
-all_F_3_CNN = init_model_and_train('3_CNN')
+all_F_3_CNN = init_model_and_train(label='3_CNN',
+                                   char_mode = "CNN",
+                                   encoder_mode = "CNN3",
+                                   crf = 1)
 print('All F1 =', all_F_3_CNN)
 
 
 # Dialeted CNN word + CNN Char
 print('\nDialeted CNN word + CNN Char')
-parameters['char_mode'] = "CNN"
-parameters['encoder_mode'] = "CNN_DILATED"
-parameters['crf'] = 1
-all_F_DILATED = init_model_and_train('DILATED')
+all_F_DILATED = init_model_and_train(label='DILATED',
+                                     char_mode = "CNN",
+                                     encoder_mode = "CNN_DILATED",
+                                     crf = 1)
 print('All F1 =', all_F_DILATED)
 
 
 # Dialeted CNN word + CNN Char + Softmax instead of CRF
 print('\nDialeted CNN word + CNN Char + Softmax instead of CRF')
-parameters['char_mode'] = "CNN"
-parameters['encoder_mode'] = "CNN_DILATED"
-parameters['crf'] = 0
-all_F_DILATED_SOFTMAX = init_model_and_train('DILATED_SOFTMAX')
+all_F_DILATED_SOFTMAX = init_model_and_train(label='DI,LATED_SOFTMAX',
+                                             char_mode = "CNN",
+                                             encoder_mode = "CNN_DILATED",
+                                             crf = 0)
 print('All F1 =', all_F_DILATED_SOFTMAX)
 
 
 # CNN-CNN
 cnn_cnn = BiLSTM_CRF(vocab_size=len(word_to_id),
                      tag_to_ix=tag_to_id,
-                     embedding_dim=parameters['word_dim'],
-                     hidden_dim=parameters['word_lstm_dim'],
-                     use_gpu=parameters['use_gpu'],
                      char_to_ix=char_to_id,
                      pre_word_embeds=word_embeds,
-                     use_crf=parameters['crf'],
                      char_mode='CNN',
                      encoder_mode='CNN')
 
 # LSTM-CNN
 lstm_cnn = BiLSTM_CRF(vocab_size=len(word_to_id),
                       tag_to_ix=tag_to_id,
-                      embedding_dim=parameters['word_dim'],
-                      hidden_dim=parameters['word_lstm_dim'],
-                      use_gpu=parameters['use_gpu'],
                       char_to_ix=char_to_id,
                       pre_word_embeds=word_embeds,
-                      use_crf=parameters['crf'],
                       char_mode='LSTM',
                       encoder_mode='CNN')
 
