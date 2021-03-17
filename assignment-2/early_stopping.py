@@ -15,7 +15,7 @@ class EarlyStopping(object):
     def step(self, metrics):
         if self.best is None:
             self.best = metrics
-            return False
+            return True
 
         # if torch.isnan(metrics):
         if metrics is None:

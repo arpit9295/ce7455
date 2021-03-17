@@ -326,7 +326,7 @@ def init_model_and_train(label):
     train_length = len(train_data)
 
     # Define early stopping
-    es = EarlyStopping(patience=2, mode='max')
+    es = EarlyStopping(patience=3, mode='max')
 
     # eval_every = 1
 
@@ -403,33 +403,31 @@ def init_model_and_train(label):
                 losses.append(loss)
                 loss = 0.0
 
-            # Evaluating on Train, Test, Dev Sets
-            if (count % train_length) == 0 and count > (train_length * 20) or (count % (train_length*eval_every) == 0):
-                print(f'Evaluating on Train, Test, Dev Sets at count={count}')
-                model.train(False)
-                best_train_F, new_train_F, new_train_acc, _ = evaluating(
-                    model, train_data, best_train_F, "Train")
-                best_dev_F, new_dev_F, new_dev_acc, save = evaluating(
-                    model, dev_data, best_dev_F, "Dev")
-                if save:
-                    print("Saving Model to ", model_name)
-                    torch.save(model.state_dict(), model_name)
-                best_test_F, new_test_F, new_test_acc, _ = evaluating(
-                    model, test_data, best_test_F, "Test")
+        # Evaluating on Train, Test, Dev Sets
+        if (epoch > 20) or (epoch % eval_every == 0):
+            print(f'Evaluating on Train, Test, Dev Sets at count={count}')
+            model.train(False)
+            best_train_F, new_train_F, new_train_acc, _ = evaluating(
+                model, train_data, best_train_F, "Train")
+            best_dev_F, new_dev_F, new_dev_acc, save = evaluating(
+                model, dev_data, best_dev_F, "Dev")
+            if save:
+                print("Saving Model to ", model_name)
+                torch.save(model.state_dict(), model_name)
+            best_test_F, new_test_F, new_test_acc, _ = evaluating(
+                model, test_data, best_test_F, "Test")
 
-                all_F.append([new_train_F, new_dev_F, new_test_F])
-                all_acc.append([new_train_acc, new_dev_acc, new_test_acc])
+            all_F.append([new_train_F, new_dev_F, new_test_F])
+            all_acc.append([new_train_acc, new_dev_acc, new_test_acc])
 
-                model.train(True)
+            model.train(True)
 
-                if es.step(all_acc[-1][1]):
-                    print(f'Early stopping: epoch={epoch}, count={count}, new_acc_F={all_acc[-1][1]}')
-                    break  # early stopping criterion is met, we can stop now
+        if es.step(all_acc[-1][1]) and (epoch > 20 or epoch % eval_every == 0):
+            print(f'Early stopping: epoch={epoch}, count={count}, new_acc_F={all_acc[-1][1]}')
+            break  # early stopping criterion is met, we can stop now
 
-            # Performing decay on the learning rate
-            if count % len(train_data) == 0:
-                adjust_learning_rate(
-                    optimizer, lr=learning_rate/(1+decay_rate*count/len(train_data)))
+        # Performing decay on the learning rate
+        adjust_learning_rate(optimizer, lr=learning_rate/(1+decay_rate*count/len(train_data)))
 
     print(f'{(time.time() - tr) / 60} minutes')
 
