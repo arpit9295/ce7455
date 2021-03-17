@@ -45,3 +45,9 @@ nohup python3 main.py --eval-every=2 & tail -50f ./logs/out.txt
 --eval-every EVAL_EVERY
                       Evaluate at the end of EVAL_EVERY epochs
 ```
+
+### Test
+
+```bash
+python3 test.py --model=1_CNN.model --sentence="Google is a large tax-payer and a major contributor to the USA Economy. Amazon, as Verge pointed out, however, avoids taxes using some questionable practices"
+```
