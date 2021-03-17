@@ -431,7 +431,7 @@ def init_model_and_train(label='',
 
             model.train(True)
 
-        if es.step(all_F[-1][1]) and (epoch > 20 or epoch % eval_every == 0):
+        if (epoch > 20 or epoch % eval_every == 0) and es.step(all_F[-1][1]):
             print(f'Early stopping: epoch={epoch}, count={count}, new_acc_F={all_acc[-1][1]}')
             break  # early stopping criterion is met, we can stop now
 
