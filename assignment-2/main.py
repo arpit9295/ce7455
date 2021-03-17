@@ -175,7 +175,12 @@ print('word_to_id: ', len(word_to_id))
 # ##### Helper functions for evaluation
 
 
-def evaluating(model, datas, best_F, dataset="Train"):
+def evaluating(model,
+               datas,
+               best_F,
+               dataset="Train",
+               char_mode=parameters['char_mode'],
+               use_gpu=parameters['use_gpu']):
     '''
     The function takes as input the model, data and calcuates F-1 Score
     It performs conditional updates
@@ -194,7 +199,7 @@ def evaluating(model, datas, best_F, dataset="Train"):
         words = data['str_words']
         chars2 = data['chars']
 
-        if parameters['char_mode'] == 'LSTM':
+        if char_mode == 'LSTM':
             chars2_sorted = sorted(chars2, key=lambda p: len(p), reverse=True)
             d = {}
             for i, ci in enumerate(chars2):
@@ -210,7 +215,7 @@ def evaluating(model, datas, best_F, dataset="Train"):
                 chars2_mask[i, :chars2_length[i]] = c
             chars2_mask = Variable(torch.LongTensor(chars2_mask))
 
-        if parameters['char_mode'] == 'CNN':
+        if char_mode == 'CNN':
             d = {}
 
             # Padding the each word to max word size of that sentence
@@ -225,7 +230,7 @@ def evaluating(model, datas, best_F, dataset="Train"):
         dwords = Variable(torch.LongTensor(data['words']))
 
         # We are getting the predicted output from our model
-        if parameters['use_gpu']:
+        if use_gpu:
             val, out = model(dwords.cuda(), chars2_mask.cuda(), chars2_length, d)
         else:
             val, out = model(dwords, chars2_mask, chars2_length, d)
@@ -284,30 +289,40 @@ def evaluating(model, datas, best_F, dataset="Train"):
 # #### Create and Train Model Function
 
 
-def init_model_and_train(label):
+def init_model_and_train(label='',
+                         crf=parameters['crf'],
+                         char_mode=parameters['char_mode'],
+                         encoder_mode=parameters['encoder_mode'],
+                         use_gpu=parameters['use_gpu'],
+                         eval_every = parameters['eval_every'], # Calculate F-1 Score after this many iterations
+                         plot_every = parameters['plot_every'],  # Store loss after this many iterations
+                         gradient_clip = parameters['gradient_clip'],
+                         total_epochs=parameters['epochs'] + 1,
+                         output_dir=parameters['output_dir'],
+                         embedding_dim=parameters['word_dim'],
+                         hidden_dim=parameters['word_lstm_dim']):
     # Create model
     model = BiLSTM_CRF(vocab_size=len(word_to_id),
-                    tag_to_ix=tag_to_id,
-                    embedding_dim=parameters['word_dim'],
-                    hidden_dim=parameters['word_lstm_dim'],
-                    use_gpu=parameters['use_gpu'],
-                    char_to_ix=char_to_id,
-                    pre_word_embeds=word_embeds,
-                    use_crf=parameters['crf'],
-                    char_mode=parameters['char_mode'],
-                    encoder_mode=parameters['encoder_mode'])
+                       tag_to_ix=tag_to_id,
+                       embedding_dim=embedding_dim,
+                       hidden_dim=hidden_dim,
+                       use_gpu=use_gpu,
+                       char_to_ix=char_to_id,
+                       pre_word_embeds=word_embeds,
+                       use_crf=crf,
+                       char_mode=char_mode,
+                       encoder_mode=encoder_mode)
 
     # Enable GPU
-    if parameters['use_gpu']:
+    if use_gpu:
         model.cuda()
 
-    print(f"Char mode: {parameters['char_mode']}, Encoder mode: {parameters['encoder_mode']}")
+    print(f"Char mode: {char_mode}, Encoder mode: {encoder_mode}")
 
     # Training parameters
     learning_rate = 0.015
     momentum = 0.9
     decay_rate = 0.05
-    gradient_clip = parameters['gradient_clip']
     optimizer = torch.optim.SGD(
         model.parameters(), lr=learning_rate, momentum=momentum)
 
@@ -319,9 +334,6 @@ def init_model_and_train(label):
     best_train_F = -1.0  # Current best F-1 Score on Train Set
     all_F = [[0, 0, 0]]  # List storing all the F-1 Scores
     all_acc = [[0, 0, 0]]  # List storing all the Accuracy Scores
-    # Calculate F-1 Score after this many iterations
-    eval_every = parameters['eval_every']
-    plot_every = parameters['plot_every']  # Store loss after this many iterations
     count = 0  # Counts the number of iterations
     train_length = len(train_data)
 
@@ -332,7 +344,7 @@ def init_model_and_train(label):
 
     tr = time.time()
     model.train(True)
-    for epoch in range(1, parameters['epochs'] + 1):
+    for epoch in range(1, total_epochs):
         print(f'Epoch {epoch}:')
         for i, index in enumerate(np.random.permutation(train_length)):
             # for i, index in enumerate(np.random.permutation(eval_every)):
@@ -347,7 +359,7 @@ def init_model_and_train(label):
             tags = data['tags']
             chars2 = data['chars']
 
-            if parameters['char_mode'] == 'LSTM':
+            if char_mode == 'LSTM':
                 chars2_sorted = sorted(
                     chars2, key=lambda p: len(p), reverse=True)
                 d = {}
@@ -364,7 +376,7 @@ def init_model_and_train(label):
                     chars2_mask[i, :chars2_length[i]] = c
                 chars2_mask = Variable(torch.LongTensor(chars2_mask))
 
-            if parameters['char_mode'] == 'CNN':
+            if char_mode == 'CNN':
 
                 d = {}
 
@@ -380,7 +392,7 @@ def init_model_and_train(label):
             targets = torch.LongTensor(tags)
 
             # we calculate the negative log-likelihood for the predicted tags using the predefined function
-            if parameters['use_gpu']:
+            if use_gpu:
                 neg_log_likelihood = model.get_neg_log_likelihood(
                     sentence_in.cuda(), targets.cuda(), chars2_mask.cuda(), chars2_length, d)
             else:
@@ -407,22 +419,19 @@ def init_model_and_train(label):
         if (epoch > 20) or (epoch % eval_every == 0):
             print(f'Evaluating on Train, Test, Dev Sets at count={count}')
             model.train(False)
-            best_train_F, new_train_F, new_train_acc, _ = evaluating(
-                model, train_data, best_train_F, "Train")
-            best_dev_F, new_dev_F, new_dev_acc, save = evaluating(
-                model, dev_data, best_dev_F, "Dev")
+            best_train_F, new_train_F, new_train_acc, _ = evaluating(model, train_data, best_train_F, "Train", char_mode=char_mode, use_gpu=use_gpu)
+            best_dev_F, new_dev_F, new_dev_acc, save = evaluating(model, dev_data, best_dev_F, "Dev", char_mode=char_mode, use_gpu=use_gpu)
             if save:
                 print("Saving Model to ", model_name)
                 torch.save(model.state_dict(), model_name)
-            best_test_F, new_test_F, new_test_acc, _ = evaluating(
-                model, test_data, best_test_F, "Test")
+            best_test_F, new_test_F, new_test_acc, _ = evaluating(model, test_data, best_test_F, "Test", char_mode=char_mode, use_gpu=use_gpu)
 
             all_F.append([new_train_F, new_dev_F, new_test_F])
             all_acc.append([new_train_acc, new_dev_acc, new_test_acc])
 
             model.train(True)
 
-        if es.step(all_acc[-1][1]) and (epoch > 20 or epoch % eval_every == 0):
+        if es.step(all_F[-1][1]) and (epoch > 20 or epoch % eval_every == 0):
             print(f'Early stopping: epoch={epoch}, count={count}, new_acc_F={all_acc[-1][1]}')
             break  # early stopping criterion is met, we can stop now
 
@@ -431,16 +440,16 @@ def init_model_and_train(label):
 
     print(f'{(time.time() - tr) / 60} minutes')
 
-    torch.save(model, parameters['output_dir'] + '/' + label + '.model')
+    torch.save(model, output_dir + '/' + label + '.model')
 
     plt.figure(0)
     plt.plot(losses)
-    plt.savefig(parameters['output_dir'] + '/' + label + '_appended.png', transparent=True)
+    plt.savefig(output_dir + '/' + label + '_appended.png', transparent=True)
 
     plt.figure(1)
     plt.clf()
     plt.plot(losses)
-    plt.savefig(parameters['output_dir'] + '/' + label + '.png', transparent=True)
+    plt.savefig(output_dir + '/' + label + '.png', transparent=True)
 
     return all_F
 
@@ -500,32 +509,28 @@ print('All F1 =', all_F_DILATED_SOFTMAX)
 
 
 # CNN-CNN
-parameters['char_mode'] = 'CNN'
-parameters['encoder_mode'] = 'CNN'
 cnn_cnn = BiLSTM_CRF(vocab_size=len(word_to_id),
-                    tag_to_ix=tag_to_id,
-                    embedding_dim=parameters['word_dim'],
-                    hidden_dim=parameters['word_lstm_dim'],
-                    use_gpu=parameters['use_gpu'],
-                    char_to_ix=char_to_id,
-                    pre_word_embeds=word_embeds,
-                    use_crf=parameters['crf'],
-                    char_mode=parameters['char_mode'],
-                    encoder_mode=parameters['encoder_mode'])
+                     tag_to_ix=tag_to_id,
+                     embedding_dim=parameters['word_dim'],
+                     hidden_dim=parameters['word_lstm_dim'],
+                     use_gpu=parameters['use_gpu'],
+                     char_to_ix=char_to_id,
+                     pre_word_embeds=word_embeds,
+                     use_crf=parameters['crf'],
+                     char_mode='CNN',
+                     encoder_mode='CNN')
 
 # LSTM-CNN
-parameters['char_mode'] = 'LSTM'
-parameters['encoder_mode'] = 'CNN'
 lstm_cnn = BiLSTM_CRF(vocab_size=len(word_to_id),
-                    tag_to_ix=tag_to_id,
-                    embedding_dim=parameters['word_dim'],
-                    hidden_dim=parameters['word_lstm_dim'],
-                    use_gpu=parameters['use_gpu'],
-                    char_to_ix=char_to_id,
-                    pre_word_embeds=word_embeds,
-                    use_crf=parameters['crf'],
-                    char_mode=parameters['char_mode'],
-                    encoder_mode=parameters['encoder_mode'])
+                      tag_to_ix=tag_to_id,
+                      embedding_dim=parameters['word_dim'],
+                      hidden_dim=parameters['word_lstm_dim'],
+                      use_gpu=parameters['use_gpu'],
+                      char_to_ix=char_to_id,
+                      pre_word_embeds=word_embeds,
+                      use_crf=parameters['crf'],
+                      char_mode='LSTM',
+                      encoder_mode='CNN')
 
 
 # #### 1. `CNN char-level encoder` vs `LSTM char-level encoder` (both using `Single CNN word-level encoder`)
