@@ -455,8 +455,6 @@ class BiLSTM_CRF(nn.Module):
         # Linear layer converts the ouput vectors to tag space
         lstm_feats = self.hidden2tag(lstm_out)
 
-        print(f'lstm_feats size: {lstm_feats.size()}')
-
         return lstm_feats
 
 
