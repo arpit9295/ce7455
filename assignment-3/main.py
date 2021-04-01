@@ -17,7 +17,7 @@ from data import SOS_token, EOS_token, MAX_LENGTH,\
 from utils import Unbuffered,\
                   timeSince, savePlot, saveAttention
 from model import EncoderRNN, CharEncoderRNN, AttnDecoderRNN, DecoderRNN
-
+from beam_search import beam_decode
 
 # ##### Define constants and paramaters
 
@@ -35,6 +35,7 @@ parser.add_argument('--encoder-file', default='encoder.model', help="Filename of
 parser.add_argument('--decoder-file', default='decoder.model', help="Filename of decoder model")
 
 parser.add_argument('--use-char-embedding', action='store_true', help="Hidden layer size")
+parser.add_argument('--use-beam-search', default="true", help="Hidden layer size")
 parser.add_argument('--hidden-size', type=int, default=256, help="Hidden layer size")
 parser.add_argument('--char-embedding-size', type=int, default=32, help="Char embedding dimension")
 parser.add_argument('--char-representation-size', type=int, default=32, help="Token embedding dimension")
@@ -57,12 +58,14 @@ parameters = vars(parser.parse_args())
 output_dir = parameters['output_dir']
 use_char_embedding = parameters['use_char_embedding']
 
+
 if not os.path.exists(output_dir):
     os.system('mkdir ' + output_dir)
 
 f = open(output_dir + '/out.txt', 'w')
 sys.stdout = Unbuffered(f) # Change the standard output to the file we created.
 
+use_beam_search = parameters['use_beam_search'] != 'false'
 use_attention = parameters['use_attention'] != 'false'
 use_gpu = parameters['use_gpu'] != 'false'
 
@@ -129,8 +132,7 @@ def train(input_word_tensor,
         # Teacher forcing: Feed the target as the next input
         for di in range(target_length):
             if (use_attention):
-                decoder_output, decoder_hidden, decoder_attention = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs)
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
             else:
                 decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             loss += criterion(decoder_output, target_word_tensor[di])
@@ -144,6 +146,7 @@ def train(input_word_tensor,
                     decoder_input, decoder_hidden, encoder_outputs)
             else:
                 decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # detach from history as input
 
@@ -228,26 +231,31 @@ def evaluate(encoder, decoder, sentence, max_length):
 
         decoder_hidden = encoder_hidden
 
-        decoded_words = []
-        decoder_attentions = torch.zeros(max_length, max_length)
+        if use_beam_search:
+            decoded_batch = beam_decode(decoder_hidden, encoder_outputs, decoder, device, use_attention, max_length=MAX_LENGTH)
+            word_ids, decoder_attentions = decoded_batch[0][0]
+            decoded_words = [output_lang.index2word[word_id.item()] for word_id in word_ids]
+            return decoded_words, decoder_attentions
+        else:
+            decoded_words = []
+            decoder_attentions = torch.zeros(max_length, max_length)
 
-        for di in range(max_length):
-            if use_attention:
-                decoder_output, decoder_hidden, decoder_attention = decoder(
-                    decoder_input, decoder_hidden, encoder_outputs)
-                decoder_attentions[di] = decoder_attention.data
-            else:
-                decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-            topv, topi = decoder_output.data.topk(1)
-            if topi.item() == EOS_token:
-                decoded_words.append('<EOS>')
-                break
-            else:
-                decoded_words.append(output_lang.index2word[topi.item()])
+            for di in range(max_length):
+                if use_attention:
+                    decoder_output, decoder_hidden, decoder_attention = decoder(
+                        decoder_input, decoder_hidden, encoder_outputs)
+                    decoder_attentions[di] = decoder_attention.data
+                else:
+                    decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+                topv, topi = decoder_output.data.topk(1)
+                if topi.item() == EOS_token:
+                    break
+                else:
+                    decoded_words.append(output_lang.index2word[topi.item()])
 
-            decoder_input = topi.squeeze().detach()
+                decoder_input = topi.squeeze().detach()
 
-        return decoded_words, decoder_attentions[:di + 1]
+            return decoded_words, decoder_attentions[:di + 1]
 
 def evaluateRandomly(encoder, decoder, n=10):
     for i in range(n):
